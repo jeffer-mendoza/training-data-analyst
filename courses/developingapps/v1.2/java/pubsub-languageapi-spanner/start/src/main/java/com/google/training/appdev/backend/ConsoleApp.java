@@ -44,11 +44,8 @@ public class ConsoleApp {
     // Notice that the code to create the topic is the same as in the publisher
     TopicName topic = TopicName.create(projectId, "feedback");
 
-    // TODO: Create the languageService
-
-    
-
-    // END TODO
+    // Create the languageService
+    LanguageService languageService = LanguageService.create();
 
     // TODO: Create the spannerService
 
@@ -56,108 +53,76 @@ public class ConsoleApp {
 
     // END TODO
 
-    // TODO: Create the Pub/Sub subscription name
+    // Create the Pub/Sub subscription name
+    // SubscriptionName subscription = SubscriptionName.create(projectId, "worker1-subscription");
+    // SubscriptionName subscription = SubscriptionName.create(projectId, "worker2-subscription");
+    SubscriptionName subscription = SubscriptionName.create(projectId, "worker3-subscription");
+    try (SubscriptionAdminClient subscriptionAdminClient = SubscriptionAdminClient.create()) {
+        // create the Pub/Sub subscription
+        subscriptionAdminClient.createSubscription(
+            subscription, topic, PushConfig.getDefaultInstance(), 0);
 
-    
-
-    // END TODO
-    
-    // TODO: Create the subscriptionAdminClient
-
-    
-
-      // TODO: create the Pub/Sub subscription using the subscription name and topic
-
-      
-
-      // END TODO
-      
-    
-
-    // END TODO
+    }
 
     // The message receiver processes Pub/Sub subscription messages
     MessageReceiver receiver = new MessageReceiver() {
         // Override the receiveMessage(...) method
         @Override
         public void receiveMessage(PubsubMessage message, AckReplyConsumer consumer) {
-            // TODO: Extract the message data as a JSON String
-
-            
-
-            // END TODO
-
-            // TODO: Ack the message
-
-            
-
-            // END TODO
+            String fb = message.getData().toStringUtf8();
+            // Ack the message
+            consumer.ack();
 
             try {
                 // Object mapper deserializes the JSON String
                 ObjectMapper mapper = new ObjectMapper();
 
-                // TODO: Deserialize the JSON String representing the feedback
+                // Deserialize the JSON String representing the feedback
+                Feedback feedback = mapper.readValue(fb, Feedback.class);
+                System.out.println("Feedback received: " + feedback);
 
-                
+                // Use the Natural Language API to analyze sentiment
+                float sentimentScore = languageService.analyzeSentiment(
+                                feedback.getFeedback());
 
-                // END TODO
+                // Set the feedback object sentiment score
+                feedback.setSentimentScore(sentimentScore);
+                System.out.println("Score is: " + sentimentScore);
 
-                // TODO: Use the Natural Language API to analyze sentiment
-
-                
-
-                // END TODO
-
-                // TODO: Set the feedback object sentiment score
-
-                
-
-                // END TODO
-
-                // TODO: Insert the feedback into Cloud Spanner
-
-                
-
-                // END TODO
-
+                // Insert the feedback into Cloud Spanner
+                SpannerService spannerService = SpannerService.create();
+                spannerService.insertFeedback(feedback);
+                System.out.println("Feedback saved");
             } catch (Exception e) {
                 e.printStackTrace();
             }
         }
     };
 
-    // TODO: Declare a subscriber
-
-    
-
-    // END TODO
+    // Declare a subscriber
+    Subscriber subscriber = null;
 
     try {
 
-        // TODO: Initialize the subscriber using its default builder
+        // Initialize the subscriber using its default builder
         // with a subscription and receiver
-
-        
-
-        // END TODO
-
-        // TODO: Add a listener to the subscriber
-
-        
-        
+        subscriber = Subscriber.defaultBuilder(subscription, receiver).build();
 
 
+        // Add a listener to the subscriber
+        subscriber.addListener(
+            new Subscriber.Listener() {
+                @Override
+                public void failed(
+                        Subscriber.State from,
+                        Throwable failure) {
+                System.err.println(failure);
+                }
+            },
+            MoreExecutors.directExecutor());
 
-
-        // END TODO
-
-        // TODO: Start subscribing
-
-        
-        
-
-        // END TODO
+        // Start subscribing
+        subscriber.startAsync().awaitRunning();
 
         System.out.println("Started. Press any key to quit and remove subscription");
 
@@ -165,21 +130,21 @@ public class ConsoleApp {
 
     } finally {
         
-        // TODO: Stop subscribing
+        // Stop subscribing
+        if (subscriber != null) {
+            subscriber.stopAsync().awaitTerminated();
+        }
 
-        
+        // Delete the subscription
 
-        // END TODO
-        
+        try (SubscriptionAdminClient
+                subscriptionAdminClient =
+                    SubscriptionAdminClient.create()) {
 
-        // TODO: Delete the subscription
+            subscriptionAdminClient.deleteSubscription(
+                                            subscription);
+        }
 
-        
-        
-
-
-
-        // END TODO
     }
     }
 

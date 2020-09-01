@@ -30,51 +30,51 @@ public class SpannerService {
 
     public void insertFeedback(Feedback feedback){
         // TODO: Get a reference to the Spanner API
-
-        
-
-        // END TODO
+        SpannerOptions options = SpannerOptions.newBuilder().build();
+        Spanner spanner = options.getService();
 
         try {
-            // TODO: Get a reference to the quiz-instance and its quiz-database
+            // Get a reference to the quiz-instance and its quiz-database
+            DatabaseId db = DatabaseId.of(
+                                options.getProjectId(),
+                                "quiz-instance",
+                                "quiz-database");
 
-            
+            // Get a client for the quiz-database
+            DatabaseClient dbClient = spanner.getDatabaseClient(db);
 
-            // END TODO
+            // Create a list to hold mutations against the database
+            List<Mutation> mutations = new ArrayList<>();
 
-            // TODO: Get a client for the quiz-database
 
-            
-
-            // END TODO
-
-            // TODO: Create a list to hold mutations against the database
-
-            
-
-            // END TODO
-
-            // TODO: Add an insert mutation
-
-            
-                    // TODO: Build a new insert mutation
-
+            // Add an insert mutation
+            mutations.add(
+                    // Build a new insert mutation
+                    Mutation.newInsertBuilder("Feedback")
+                            .set("feedbackId")
+                            .to(feedback.getEmail() + '_' +
+                                feedback.getQuiz() + "_" +
+                                feedback.getTimestamp())
+                            .set("email")
+                            .to(feedback.getEmail())
+                            .set("quiz")
+                            .to(feedback.getQuiz())
+                            .set("feedback")
+                            .to(feedback.getFeedback())
+                            .set("rating")
+                            .to(feedback.getRating())
+                            .set("score")
+                            .to(
+                            feedback.getSentimentScore())
+                            .set("timestamp")
+                            .to(feedback.getTimestamp())
+                            .build());
                     
+            // Write the change to Spanner
 
+            dbClient.write(mutations);
 
-
-
-
-                    // END TODO
-                    
-            // END TODO
-
-            // TODO: Write the change to Spanner
-
-            
-
-            // END TODO
-        }catch(Exception e){
+        } catch(Exception e){
             e.printStackTrace();
         }
     }
